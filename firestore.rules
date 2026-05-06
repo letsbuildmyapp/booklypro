@@ -1,0 +1,44 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function userDoc() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function isAdmin() { return signedIn() && userDoc().role == 'admin'; }
+    function isStaff() { return signedIn() && userDoc().role == 'staff'; }
+
+    // User profiles. Owner can read/write own; admins can read all.
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow create: if signedIn() && request.auth.uid == uid;
+      allow update: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // Catalog: services, staff, locations, business — readable by anyone signed in; admin-only writes.
+    match /services/{id} { allow read: if signedIn(); allow write: if isAdmin(); }
+    match /staff/{id}    { allow read: if signedIn(); allow write: if isAdmin(); }
+    match /locations/{id}{ allow read: if signedIn(); allow write: if isAdmin(); }
+    match /business/{id} { allow read: if signedIn(); allow write: if isAdmin(); }
+
+    // Bookings: customer can create/read/cancel own; staff can read/update own; admin all.
+    match /bookings/{id} {
+      allow read: if signedIn() && (
+        resource.data.customerUid == request.auth.uid ||
+        (isStaff() && resource.data.staffId == userDoc().staffId) ||
+        isAdmin()
+      );
+      allow create: if signedIn()
+        && request.resource.data.customerUid == request.auth.uid
+        && request.resource.data.keys().hasAll(['serviceId','staffId','locationId','customerUid','customerName','customerEmail','startAt','endAt','status','priceCents','createdAt']);
+      allow update: if signedIn() && (
+        (resource.data.customerUid == request.auth.uid && request.resource.data.customerUid == resource.data.customerUid) ||
+        (isStaff() && resource.data.staffId == userDoc().staffId) ||
+        isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /{document=**} { allow read, write: if false; }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "projects": {
+    "default": "demo-booklypro"
+  },
+  "targets": {
+    "demo-booklypro": {
+      "hosting": {
+        "staging": ["booklypro-staging"],
+        "production": ["booklypro"]
+      }
+    }
+  }
+}

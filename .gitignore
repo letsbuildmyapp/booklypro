@@ -1,0 +1,61 @@
+# deps
+node_modules/
+.pnp
+.pnp.js
+
+# build output
+dist/
+dist-ssr/
+build/
+out/
+functions/lib/
+*.local
+
+# logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+pglite-debug.log
+
+# env
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+functions/.env
+functions/.env.local
+functions/.env.*.local
+!.env.example
+!.env.local.example
+
+# firebase
+.firebase/
+.firebase-data/
+.firebaserc.local
+
+# editor / OS
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.swp
+*.swo
+Thumbs.db
+
+# vite + cache
+.vite/
+.cache/
+coverage/
+.nyc_output/
+
+# typescript
+*.tsbuildinfo
+
+# misc
+.eslintcache

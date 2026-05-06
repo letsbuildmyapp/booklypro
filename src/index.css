@@ -1,0 +1,67 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+.dark {
+  color-scheme: dark;
+}
+
+html, body, #root { height: 100%; }
+html { font-size: 16px; }
+
+body {
+  @apply font-sans antialiased bg-cream text-ink-900;
+  font-size: 1rem;
+  line-height: 1.5;
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.dark body { @apply bg-ink-900 text-ink-50; }
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 min-h-[44px] font-medium transition-all disabled:opacity-50 disabled:pointer-events-none focus:outline-none focus-visible:ring-4 focus-visible:ring-sage-200 dark:focus-visible:ring-sage-700/40;
+  }
+  .btn-primary {
+    @apply btn bg-sage-600 text-white hover:bg-sage-700 active:bg-sage-800 shadow-soft;
+  }
+  .btn-secondary {
+    @apply btn bg-white border border-ink-200 text-ink-900 hover:bg-cream dark:bg-ink-800 dark:border-ink-700 dark:text-ink-50 dark:hover:bg-ink-700;
+  }
+  .btn-ghost {
+    @apply btn bg-transparent text-ink-700 hover:bg-cream dark:text-ink-200 dark:hover:bg-ink-800;
+  }
+  .btn-accent {
+    @apply btn bg-blush-500 text-white hover:bg-blush-600 active:bg-blush-700 shadow-soft;
+  }
+  .card {
+    @apply bg-white dark:bg-ink-800 rounded-3xl border border-ink-100 dark:border-ink-700 shadow-soft;
+  }
+  .input {
+    @apply w-full rounded-2xl border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-800 px-4 py-3 min-h-[44px] text-base text-ink-900 dark:text-ink-50 placeholder:text-ink-400 focus:outline-none focus:ring-4 focus:ring-sage-200 dark:focus:ring-sage-700/40 focus:border-sage-500;
+  }
+  .label {
+    @apply block text-sm font-medium text-ink-800 dark:text-ink-100 mb-2;
+  }
+  .eyebrow {
+    @apply text-xs font-semibold uppercase tracking-wider text-ink-500 dark:text-ink-300;
+    letter-spacing: 0.08em;
+  }
+  .pill {
+    @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium;
+  }
+  .num { font-variant-numeric: tabular-nums; }
+}
+
+::selection {
+  background: rgb(214 96 79 / 0.25);
+  color: inherit;
+}
