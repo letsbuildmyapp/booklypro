@@ -1,0 +1,173 @@
+@import url("https://api.fontshare.com/v2/css?f[]=general-sans@200,300,400,500,600,700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ----------------------------------------------------------------------
+   BooklyPro design tokens — Soft consumer / General Sans / rounded-3xl
+   Palette: warm cream light, deep navy dark; sage primary, coral accent.
+   See README.md "Decisions to revisit" for OKLCH source values.
+---------------------------------------------------------------------- */
+
+@layer base {
+  :root {
+    --background: 38 38% 96%;
+    --foreground: 222 28% 12%;
+
+    --card: 38 50% 99%;
+    --card-foreground: 222 28% 12%;
+
+    --popover: 38 50% 99%;
+    --popover-foreground: 222 28% 12%;
+
+    --primary: 152 30% 42%;
+    --primary-foreground: 38 50% 99%;
+
+    --secondary: 38 28% 92%;
+    --secondary-foreground: 222 28% 18%;
+
+    --muted: 38 24% 90%;
+    --muted-foreground: 220 14% 36%;
+
+    --accent: 12 78% 60%;
+    --accent-foreground: 38 50% 99%;
+
+    --destructive: 358 70% 50%;
+    --destructive-foreground: 38 50% 99%;
+
+    --border: 38 20% 86%;
+    --input: 38 20% 86%;
+    --ring: 152 40% 48%;
+
+    --status-confirmed: 152 32% 44%;
+    --status-completed: 220 14% 42%;
+    --status-noshow: 12 78% 56%;
+    --status-cancelled: 220 8% 56%;
+    --status-rescheduled: 36 82% 52%;
+
+    --radius: 1.5rem;
+  }
+
+  .dark {
+    --background: 222 28% 9%;
+    --foreground: 38 30% 94%;
+
+    --card: 222 26% 12%;
+    --card-foreground: 38 30% 94%;
+
+    --popover: 222 28% 11%;
+    --popover-foreground: 38 30% 94%;
+
+    --primary: 152 40% 58%;
+    --primary-foreground: 222 28% 9%;
+
+    --secondary: 222 22% 16%;
+    --secondary-foreground: 38 30% 94%;
+
+    --muted: 222 18% 18%;
+    --muted-foreground: 220 12% 70%;
+
+    --accent: 12 80% 68%;
+    --accent-foreground: 222 28% 9%;
+
+    --destructive: 358 64% 60%;
+    --destructive-foreground: 38 30% 94%;
+
+    --border: 222 18% 20%;
+    --input: 222 18% 22%;
+    --ring: 152 50% 58%;
+
+    --status-confirmed: 152 40% 58%;
+    --status-completed: 220 14% 70%;
+    --status-noshow: 12 80% 68%;
+    --status-cancelled: 220 10% 60%;
+    --status-rescheduled: 36 82% 64%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-feature-settings: "ss01", "ss02", "cv11";
+    font-size: 16px;
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  /* Anything interactive should look interactive.
+     Tailwind's preflight removes the default cursor on <button>; restore it everywhere. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="tab"],
+  [role="menuitem"],
+  [role="menuitemcheckbox"],
+  [role="menuitemradio"],
+  [role="option"],
+  [role="checkbox"]:not([aria-disabled="true"]),
+  [role="switch"]:not([aria-disabled="true"]),
+  [role="radio"]:not([aria-disabled="true"]),
+  [data-radix-collection-item],
+  summary,
+  label[for],
+  select:not(:disabled),
+  a[href] {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [aria-disabled="true"],
+  select:disabled,
+  input:disabled,
+  textarea:disabled {
+    cursor: not-allowed;
+  }
+
+  ::selection {
+    background: hsl(var(--primary) / 0.25);
+    color: hsl(var(--foreground));
+  }
+
+  *:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px hsl(var(--ring) / 0.45);
+    border-radius: calc(var(--radius) - 8px);
+  }
+
+  /* Tabular numerals on prices, times, counts */
+  .num,
+  time,
+  .tabular,
+  [data-tabular="true"] {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .eyebrow {
+    @apply uppercase font-medium;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+  }
+
+  .prose-soft { max-width: 65ch; }
+  .touch-target { min-height: 44px; min-width: 44px; }
+  .touch-target-lg { min-height: 48px; min-width: 48px; }
+}
+
+@layer utilities {
+  .ring-spotlight {
+    box-shadow: 0 0 0 4px hsl(var(--primary) / 0.45), 0 0 0 9999px hsl(222 28% 8% / 0.72);
+  }
+  .bg-grain {
+    background-image:
+      radial-gradient(at 0% 0%, hsl(var(--primary) / 0.08) 0, transparent 50%),
+      radial-gradient(at 100% 100%, hsl(var(--accent) / 0.06) 0, transparent 50%);
+  }
+}

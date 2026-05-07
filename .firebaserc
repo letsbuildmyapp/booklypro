@@ -1,0 +1,13 @@
+{
+  "projects": {
+    "default": "booklypro-lbma"
+  },
+  "targets": {
+    "booklypro-lbma": {
+      "hosting": {
+        "staging": ["booklypro-lbma-staging"],
+        "prod": ["booklypro-lbma-prod"]
+      }
+    }
+  }
+}
