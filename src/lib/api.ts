@@ -1,18 +1,16 @@
 /* ---------------------------------------------------------------------
    Public data API surface. UI calls these instead of the store directly.
-   In production these would be replaced by Firestore queries / Cloud
-   Function calls. Each function name maps 1:1 to a future server path.
 --------------------------------------------------------------------- */
 
-import { addMinutesIso, parseISO, ymdInTz } from "./time";
+import { addMinutesIso } from "./time";
 import { getStore, mutate, newId, currentUser as _currentUser, setCurrentUser as _setCurrentUser, subscribe as _subscribe } from "./store";
 import type {
-  Availability, Blackout, Booking, BookingStatus, Business,
-  Conversation, Location, Message, Notification, Service, SmsLogEntry,
-  StaffProfile, User, Role, Tier,
+  Availability, Booking, BookingStatus, Business,
+  Conversation, EmailLogEntry, Location, Message, Notification, Service, SmsLogEntry,
+  StaffProfile, User, Tier,
 } from "./types";
 import { browserTimezone } from "./time";
-import { computeAvailability, computeDeposit, type AvailableSlot } from "./availability";
+import { computeAvailability, type AvailableSlot } from "./availability";
 
 export const subscribe = _subscribe;
 export const currentUser = _currentUser;
@@ -20,35 +18,10 @@ export const setCurrentUser = _setCurrentUser;
 
 // ---------- Auth ----------
 
-export async function signInWithEmail(email: string, _password: string): Promise<User> {
+export async function signInAs(userId: string): Promise<User> {
   const s = getStore();
-  const u = s.users.find((x) => x.email.toLowerCase() === email.trim().toLowerCase());
-  if (!u) throw new Error("No account with that email. Try one of the seeded accounts (see README).");
-  setCurrentUser(u.id);
-  return u;
-}
-
-export async function signUpCustomer(input: { email: string; displayName: string; phone?: string; password: string }): Promise<User> {
-  const s = getStore();
-  if (s.users.some((u) => u.email.toLowerCase() === input.email.toLowerCase())) {
-    throw new Error("An account already exists with that email.");
-  }
-  const id = newId("user");
-  const user: User = {
-    id, email: input.email, displayName: input.displayName, phone: input.phone,
-    timezone: browserTimezone(), roles: ["customer"], createdAt: new Date().toISOString(),
-  };
-  mutate((s) => { s.users.push(user); });
-  setCurrentUser(id);
-  return user;
-}
-
-export async function signInWithGoogle(): Promise<User> {
-  // Stub for the demo: signs in as Ada Reyes (the cross-business demo customer).
-  // Production: replace with Firebase signInWithPopup(GoogleAuthProvider).
-  const s = getStore();
-  const u = s.users.find((x) => x.email === "ada@example.com");
-  if (!u) throw new Error("Demo seed missing");
+  const u = s.users.find((x) => x.id === userId);
+  if (!u) throw new Error("Unknown user");
   setCurrentUser(u.id);
   return u;
 }
@@ -246,6 +219,8 @@ export function createBooking(input: {
     statusHistory: [{ status: "confirmed", at: new Date().toISOString(), byUserId: input.customer.userId }],
     reminderSentAt: {},
   };
+  const business = s.businesses.find((b) => b.id === input.businessId);
+  const when = formatBookingTime(booking, business);
   mutate((s) => {
     s.bookings.push(booking);
     s.notifications.push({
@@ -253,6 +228,23 @@ export function createBooking(input: {
       title: "Booking confirmed", body: `Your appointment is set.`,
       link: `/me/bookings`, createdAt: new Date().toISOString(), readAt: null,
     });
+    s.emailLog.push({
+      id: newId("email"), businessId: input.businessId,
+      to: input.customer.email,
+      subject: `${business?.name ?? "Your appointment"} · confirmed for ${when}`,
+      body: `Hi ${firstName(input.customer.name)}, your ${service.name} is confirmed for ${when}. We'll send a reminder ahead of time.`,
+      bookingId: booking.id, kind: "booking_confirmed",
+      createdAt: new Date().toISOString(), status: "sent",
+    });
+    if (input.customer.phone) {
+      s.smsLog.push({
+        id: newId("sms"), businessId: input.businessId,
+        to: input.customer.phone,
+        body: `${business?.name ?? "Appointment"}: confirmed for ${when}. Reply STOP to opt out.`,
+        bookingId: booking.id,
+        createdAt: new Date().toISOString(), status: "sent",
+      });
+    }
   });
   return booking;
 }
@@ -263,6 +255,19 @@ export function updateBookingStatus(bookingId: string, status: BookingStatus, by
     if (!b) return;
     b.status = status;
     b.statusHistory.push({ status, at: new Date().toISOString(), byUserId });
+    if (status === "cancelled_by_customer" || status === "cancelled_by_business") {
+      const business = s.businesses.find((biz) => biz.id === b.businessId);
+      const service = s.services.find((sv) => sv.id === b.serviceId);
+      const when = formatBookingTime(b, business);
+      s.emailLog.push({
+        id: newId("email"), businessId: b.businessId,
+        to: b.customerSnapshot.email,
+        subject: `${business?.name ?? "Your appointment"} · cancelled`,
+        body: `Hi ${firstName(b.customerSnapshot.name)}, your ${service?.name ?? "appointment"} on ${when} has been cancelled. Reach out anytime to rebook.`,
+        bookingId: b.id, kind: "booking_cancelled",
+        createdAt: new Date().toISOString(), status: "sent",
+      });
+    }
   });
 }
 
@@ -270,14 +275,41 @@ export function rescheduleBooking(bookingId: string, newStartAt: string, byUserI
   const s = getStore();
   const old = s.bookings.find((b) => b.id === bookingId)!;
   const service = s.services.find((x) => x.id === old.serviceId)!;
+  const business = s.businesses.find((b) => b.id === old.businessId);
   const endAt = addMinutesIso(newStartAt, service.durationMinutes);
   mutate((s) => {
     const b = s.bookings.find((x) => x.id === bookingId)!;
     b.startAt = newStartAt;
     b.endAt = endAt;
     b.statusHistory.push({ status: "rescheduled", at: new Date().toISOString(), byUserId });
+    const when = formatBookingTime(b, business);
+    s.emailLog.push({
+      id: newId("email"), businessId: b.businessId,
+      to: b.customerSnapshot.email,
+      subject: `${business?.name ?? "Your appointment"} · rescheduled to ${when}`,
+      body: `Hi ${firstName(b.customerSnapshot.name)}, your ${service.name} has been moved to ${when}.`,
+      bookingId: b.id, kind: "booking_rescheduled",
+      createdAt: new Date().toISOString(), status: "sent",
+    });
   });
   return getStore().bookings.find((x) => x.id === bookingId)!;
+}
+
+function firstName(s: string) {
+  return s.split(/\s+/)[0] ?? s;
+}
+
+function formatBookingTime(b: { startAt: string }, business?: { timezone: string }): string {
+  try {
+    const d = new Date(b.startAt);
+    return d.toLocaleString("en-US", {
+      timeZone: business?.timezone,
+      weekday: "short", month: "short", day: "numeric",
+      hour: "numeric", minute: "2-digit",
+    });
+  } catch {
+    return b.startAt;
+  }
 }
 
 export function setBookingStaff(bookingId: string, staffUserId: string) {
@@ -346,12 +378,28 @@ export function markNotificationRead(id: string) {
   });
 }
 
-// ---------- SMS log (stub for Twilio in real product) ----------
+// ---------- SMS log ----------
 
 export function logSms(entry: Omit<SmsLogEntry, "id" | "createdAt" | "status">): SmsLogEntry {
-  const e: SmsLogEntry = { id: newId("sms"), createdAt: new Date().toISOString(), status: "stub_logged", ...entry };
+  const e: SmsLogEntry = { id: newId("sms"), createdAt: new Date().toISOString(), status: "sent", ...entry };
   mutate((s) => { s.smsLog.push(e); });
   return e;
+}
+
+// ---------- Email log ----------
+
+export function logEmail(entry: Omit<EmailLogEntry, "id" | "createdAt" | "status">): EmailLogEntry {
+  const e: EmailLogEntry = { id: newId("email"), createdAt: new Date().toISOString(), status: "sent", ...entry };
+  mutate((s) => {
+    if (!s.emailLog) s.emailLog = [];
+    s.emailLog.push(e);
+  });
+  return e;
+}
+
+export function listEmailLog(businessId?: string): EmailLogEntry[] {
+  const log = getStore().emailLog ?? [];
+  return businessId ? log.filter((e) => e.businessId === businessId) : log;
 }
 
 // ---------- Helpers ----------

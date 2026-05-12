@@ -67,13 +67,6 @@ export const TUTORIAL_STEPS: Record<Role, TutorialStep[]> = {
       placement: "right",
     },
     {
-      icon: <MessageSquare className="h-5 w-5" />,
-      title: "Messages and notes",
-      body: <>Customer threads tied to specific bookings — never lose context.</>,
-      target: "staff-messages",
-      placement: "right",
-    },
-    {
       icon: <Sparkles className="h-5 w-5" />,
       title: "You're all set",
       body: <>Mark complete or no-show as your day progresses. Your numbers update in real time on the admin dashboard.</>,

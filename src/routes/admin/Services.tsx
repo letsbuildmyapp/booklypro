@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { createService, deleteService, getBusinessBySlug, listLocations, listServices, listStaff, subscribe, updateService } from "@/lib/api";
-import { aiServiceDescription } from "@/lib/ai";
+import { streamServiceDescription } from "@/lib/ai";
 import { formatDuration, formatPriceCents } from "@/lib/utils";
 import type { DepositType, Service } from "@/lib/types";
 
@@ -38,32 +38,46 @@ export default function AdminServices() {
 
       <div className="grid gap-3">
         {services.map((s) => (
-          <Card key={s.id} className="p-5">
-            <div className="flex items-start justify-between gap-4 flex-wrap">
-              <div className="flex-1 min-w-0">
+          <Card key={s.id} className="p-4 sm:p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="font-semibold text-headline">{s.name}</h3>
+                  <h3 className="font-semibold text-headline truncate">{s.name}</h3>
                   {!s.active && <Badge variant="muted">Hidden</Badge>}
                 </div>
                 <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{s.description}</p>
-                <div className="mt-3 flex flex-wrap gap-3 text-sm tabular-nums">
-                  <span className="text-muted-foreground">{formatDuration(s.durationMinutes)}</span>
-                  <span className="font-semibold">{formatPriceCents(s.priceCents)}</span>
-                  {s.depositType !== "none" && (
-                    <Badge variant="accent">
-                      {s.depositType === "percent" ? `${s.depositAmount}% deposit` : `${formatPriceCents(s.depositAmount)} deposit`}
-                    </Badge>
-                  )}
-                  <span className="text-muted-foreground">· {s.eligibleStaffIds.length} staff</span>
-                </div>
               </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => setEditing(s)}><Edit className="h-3.5 w-3.5" /> Edit</Button>
-                <Button variant="ghost" size="sm" onClick={() => { if (confirm(`Delete ${s.name}?`)) deleteService(s.id); }}>
+              <div className="flex gap-1 shrink-0">
+                <Button variant="outline" size="sm" onClick={() => setEditing(s)}>
+                  <Edit className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Edit</span>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9"
+                  onClick={() => { if (confirm(`Delete ${s.name}?`)) deleteService(s.id); }}
+                  aria-label={`Delete ${s.name}`}
+                >
                   <Trash2 className="h-3.5 w-3.5 text-destructive" />
                 </Button>
               </div>
             </div>
+
+            {/* Uniform meta row: duration · price · staff, then deposit badge below */}
+            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm tabular-nums">
+              <span className="text-muted-foreground">{formatDuration(s.durationMinutes)}</span>
+              <span className="text-muted-foreground/40">·</span>
+              <span className="font-semibold">{formatPriceCents(s.priceCents)}</span>
+              <span className="text-muted-foreground/40">·</span>
+              <span className="text-muted-foreground">{s.eligibleStaffIds.length} staff</span>
+            </div>
+            {s.depositType !== "none" && (
+              <div className="mt-2">
+                <Badge variant="accent" className="text-[11px]">
+                  {s.depositType === "percent" ? `${s.depositAmount}% deposit` : `${formatPriceCents(s.depositAmount)} deposit`}
+                </Badge>
+              </div>
+            )}
           </Card>
         ))}
       </div>
@@ -104,9 +118,16 @@ function ServiceFormDialog({ businessId, service, onClose, tone }: { businessId:
     if (!draft.name) { toast.error("Add a service name first"); return; }
     setAiLoading(true);
     try {
-      const text = await aiServiceDescription({ serviceName: draft.name, businessTone: tone, durationMinutes: draft.durationMinutes });
-      setDraft({ ...draft, description: text });
-      toast.success("Drafted with AI");
+      let last = "";
+      for await (const chunk of streamServiceDescription({
+        serviceName: draft.name,
+        businessTone: tone,
+        durationMinutes: draft.durationMinutes,
+      })) {
+        last = chunk;
+        setDraft((d) => ({ ...d, description: chunk }));
+      }
+      if (last) toast.success("Drafted with AI");
     } catch (e: any) {
       toast.error(e.message || "AI failed");
     } finally { setAiLoading(false); }

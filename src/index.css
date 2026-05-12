@@ -11,6 +11,9 @@
 ---------------------------------------------------------------------- */
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
   :root {
     --background: 38 38% 96%;
     --foreground: 222 28% 12%;

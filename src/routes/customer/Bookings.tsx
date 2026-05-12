@@ -111,9 +111,19 @@ function BookingRow({ bookingId }: { bookingId: string }) {
     : b.status === "rescheduled" ? "rescheduled"
     : "cancelled";
 
+  const action = b.status === "confirmed" ? (
+    <Button asChild variant="outline" size="sm">
+      <Link to={`/b/${business.slug}/manage/${b.id}`}>Manage</Link>
+    </Button>
+  ) : (
+    <Button asChild variant="ghost" size="sm">
+      <Link to={`/b/${business.slug}`}><MessageSquare className="h-3.5 w-3.5" /> Book again</Link>
+    </Button>
+  );
+
   return (
     <Card className="p-5 md:p-6 hover:shadow-pillow transition-shadow">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <Badge variant={statusVariant as any}>{b.status.replace(/_/g, " ")}</Badge>
@@ -127,19 +137,25 @@ function BookingRow({ bookingId }: { bookingId: string }) {
             <span className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" />{location.name}</span>
           </div>
         </div>
-        <div className="text-right flex flex-col items-end gap-2">
+
+        {/* Mobile: price + action on one row, full width */}
+        <div className="flex items-center justify-between gap-3 pt-3 border-t border-border sm:hidden">
+          <div className="min-w-0">
+            <div className="text-headline font-semibold tabular-nums">{formatPriceCents(service.priceCents)}</div>
+            {b.depositPaidCents > 0 && (
+              <div className="text-xs text-muted-foreground tabular-nums">{formatPriceCents(b.depositPaidCents)} deposit paid</div>
+            )}
+          </div>
+          <div className="shrink-0">{action}</div>
+        </div>
+
+        {/* sm+: price column right-aligned next to the info column */}
+        <div className="hidden sm:flex text-right flex-col items-end gap-2 shrink-0">
           <div className="text-headline font-semibold tabular-nums">{formatPriceCents(service.priceCents)}</div>
-          {b.depositPaidCents > 0 && <div className="text-xs text-muted-foreground tabular-nums">{formatPriceCents(b.depositPaidCents)} deposit paid</div>}
-          {b.status === "confirmed" && (
-            <Button asChild variant="outline" size="sm">
-              <Link to={`/b/${business.slug}/manage/${b.id}`}>Manage</Link>
-            </Button>
+          {b.depositPaidCents > 0 && (
+            <div className="text-xs text-muted-foreground tabular-nums">{formatPriceCents(b.depositPaidCents)} deposit paid</div>
           )}
-          {b.status !== "confirmed" && (
-            <Button asChild variant="ghost" size="sm">
-              <Link to={`/b/${business.slug}`}><MessageSquare className="h-3.5 w-3.5" /> Book again</Link>
-            </Button>
-          )}
+          {action}
         </div>
       </div>
     </Card>
@@ -250,7 +266,17 @@ function CalendarView({ bookings, userTz }: { bookings: Booking[]; userTz: strin
                 )}
               >
                 <div className={cn("text-sm tabular-nums font-medium", isToday && "text-primary")}>{c.day}</div>
-                <div className="mt-1 space-y-0.5">
+
+                {/* Mobile: compact dot + count */}
+                {items.length > 0 && (
+                  <div className="sm:hidden mt-1 flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                    <span className="text-[10px] tabular-nums font-medium text-primary">{items.length}</span>
+                  </div>
+                )}
+
+                {/* sm+: time + service chips */}
+                <div className="hidden sm:block mt-1 space-y-0.5">
                   {items.slice(0, 2).map((b) => {
                     const biz = getBusiness(b.businessId)!;
                     const svc = listServices(biz.id).find((s) => s.id === b.serviceId)!;

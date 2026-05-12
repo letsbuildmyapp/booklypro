@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowRight, Clock, MapPin, RotateCcw, Search, Sparkles, Wallet, X } from "lucide-react";
@@ -64,7 +64,7 @@ export default function CustomerDiscover() {
         <Input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Search businesses, services, neighborhoods…"
+          placeholder={useResponsivePlaceholder()}
           className="pl-11 pr-10 h-12"
         />
         {q && (
@@ -224,4 +224,18 @@ function BusinessCard({ business, delay, alreadyBooked }: { business: Business; 
       </Card>
     </motion.div>
   );
+}
+
+function useResponsivePlaceholder() {
+  const [isNarrow, setIsNarrow] = useState(() =>
+    typeof window !== "undefined" && window.matchMedia("(max-width: 640px)").matches,
+  );
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mql = window.matchMedia("(max-width: 640px)");
+    const onChange = (e: MediaQueryListEvent) => setIsNarrow(e.matches);
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, []);
+  return isNarrow ? "Search…" : "Search businesses, services, neighborhoods…";
 }

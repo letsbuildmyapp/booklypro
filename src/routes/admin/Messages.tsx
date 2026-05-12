@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
-import { Send, MessageSquare } from "lucide-react";
+import { ArrowLeft, Send, MessageSquare } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -53,7 +53,8 @@ export default function AdminMessages() {
 
   return (
     <div>
-      <div className="flex items-start justify-between gap-3 flex-wrap mb-6">
+      {/* Hide the page header on mobile when a conversation is active so the chat can fill the viewport */}
+      <div className={cn(activeId ? "hidden md:flex" : "flex", "items-start justify-between gap-3 flex-wrap mb-6")}>
         <div>
           <h1 className="text-title1 font-semibold tracking-tight">Messages</h1>
           <p className="text-muted-foreground mt-1">
@@ -84,9 +85,15 @@ export default function AdminMessages() {
       </div>
 
       <Card className="p-0 overflow-hidden">
-        <div className="grid md:grid-cols-[320px_1fr] min-h-[560px]">
-          <div className="border-r border-border bg-secondary/30">
-            <ScrollArea className="h-[560px]">
+        <div className="grid md:grid-cols-[320px_1fr] md:min-h-[560px]">
+          <div
+            className={cn(
+              "md:border-r border-border bg-secondary/30",
+              // On mobile, hide the list only after the user has explicitly picked a conversation
+              activeId ? "hidden md:block" : "block",
+            )}
+          >
+            <div className="h-[calc(100dvh-14rem)] md:h-[560px] overflow-y-auto overflow-x-hidden">
               <div className="p-2">
                 {conversations.length === 0 && (
                   <div className="p-8 text-center text-sm text-muted-foreground">
@@ -100,49 +107,71 @@ export default function AdminMessages() {
                   const customerName = customer?.displayName ?? booking?.customerSnapshot.name ?? "Customer";
                   const unread = unreadFor(c.id);
                   const service = booking ? listServices(business.id).find((s) => s.id === booking.serviceId) : null;
+                  // Derive preview + timestamp from the actual most-recent message in the thread.
+                  const msgs = listMessages(c.id);
+                  const latest = msgs[msgs.length - 1];
+                  const preview = latest?.body ?? c.lastMessagePreview ?? "No messages yet";
+                  const lastAt = latest?.createdAt ?? c.lastMessageAt;
                   return (
                     <button
                       key={c.id}
                       onClick={() => pickConv(c.id)}
                       className={cn(
-                        "w-full text-left p-3 rounded-2xl transition-colors",
-                        active?.id === c.id ? "bg-card shadow-soft" : "hover:bg-card/50"
+                        "block w-full text-left p-3 rounded-2xl transition-colors",
+                        activeId === c.id ? "bg-card shadow-soft" : "hover:bg-card/50"
                       )}
                     >
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-10 w-10">
+                      <div className="grid grid-cols-[auto_1fr] items-center gap-3 w-full">
+                        <Avatar className="h-11 w-11">
                           {customer?.avatar && <AvatarImage src={customer.avatar} alt="" />}
                           <AvatarFallback>{initials(customerName)}</AvatarFallback>
                         </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="font-semibold text-sm truncate">{customerName}</span>
-                            <span className="text-[11px] text-muted-foreground shrink-0">{fmtRelative(c.lastMessageAt, business.timezone)}</span>
+                        <div className="min-w-0">
+                          <div className="grid grid-cols-[1fr_auto] items-baseline gap-2">
+                            <span className="font-semibold text-[15px] truncate flex items-center gap-1.5">
+                              <span className="truncate">{customerName}</span>
+                              {unread > 0 && (
+                                <Badge variant="accent" className="!px-1.5 !py-0 text-[10px] tabular-nums shrink-0">{unread}</Badge>
+                              )}
+                            </span>
+                            <span className="text-[11px] text-muted-foreground whitespace-nowrap">{fmtRelative(lastAt, business.timezone)}</span>
                           </div>
-                          {service && booking && (
-                            <div className="text-[11px] text-muted-foreground truncate">
-                              {service.name} · {fmtInTz(booking.startAt, business.timezone, "MMM d")}
-                            </div>
-                          )}
-                          <p className={cn("text-xs truncate mt-0.5", unread ? "text-foreground font-medium" : "text-muted-foreground")}>
-                            {c.lastMessagePreview || "No messages yet"}
+                          <p className={cn("text-sm truncate mt-0.5", unread ? "text-foreground font-medium" : "text-muted-foreground")}>
+                            {preview}
                           </p>
                         </div>
-                        {unread > 0 && (
-                          <Badge variant="accent" className="!px-2 !py-0 text-[10px] tabular-nums">{unread}</Badge>
-                        )}
                       </div>
                     </button>
                   );
                 })}
               </div>
-            </ScrollArea>
+            </div>
           </div>
 
-          {active ? (
-            <ChatPane conversationId={active.id} userId={user.id} businessTz={business.timezone} />
-          ) : (
-            <div className="grid place-items-center text-muted-foreground p-12">
+          {active ? (() => {
+            const booking = getBooking(active.bookingId);
+            const customer = booking ? userById(booking.customerUserId) : null;
+            const customerName = customer?.displayName ?? booking?.customerSnapshot.name ?? "Customer";
+            const service = booking ? listServices(business.id).find((s) => s.id === booking.serviceId) : null;
+            return (
+              <div className={activeId ? "block" : "hidden md:block"}>
+                <ChatPane
+                  conversationId={active.id}
+                  userId={user.id}
+                  businessTz={business.timezone}
+                  onBack={() => setActiveId(null)}
+                  header={{
+                    title: customerName,
+                    subtitle: service && booking
+                      ? `${service.name} · ${fmtInTz(booking.startAt, business.timezone, "EEE, MMM d · h:mm a")}`
+                      : undefined,
+                    avatar: customer?.avatar,
+                  }}
+                />
+              </div>
+            );
+          })() : (
+            <div className="hidden md:grid place-items-center text-muted-foreground p-12">
               <div className="text-center">
                 <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-40" />
                 <p className="text-sm">Pick a conversation to read</p>
@@ -155,7 +184,13 @@ export default function AdminMessages() {
   );
 }
 
-function ChatPane({ conversationId, userId, businessTz }: { conversationId: string; userId: string; businessTz: string }) {
+function ChatPane({ conversationId, userId, businessTz, onBack, header }: {
+  conversationId: string;
+  userId: string;
+  businessTz: string;
+  onBack: () => void;
+  header: { title: string; subtitle?: string; avatar?: string };
+}) {
   const [text, setText] = useState("");
   const messages = listMessages(conversationId);
 
@@ -167,8 +202,26 @@ function ChatPane({ conversationId, userId, businessTz }: { conversationId: stri
   }
 
   return (
-    <div className="flex flex-col h-[560px]">
-      <ScrollArea className="flex-1 p-5">
+    <div className="flex flex-col h-[calc(100dvh-9rem)] md:h-[560px]">
+      <div className="flex items-center gap-3 border-b border-border px-3 sm:px-4 py-3">
+        <button
+          onClick={onBack}
+          type="button"
+          aria-label="Back to all conversations"
+          className="md:hidden touch-target inline-flex h-9 w-9 -ml-1 items-center justify-center rounded-2xl text-muted-foreground hover:text-foreground hover:bg-secondary shrink-0"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </button>
+        <Avatar className="h-9 w-9 shrink-0">
+          {header.avatar && <AvatarImage src={header.avatar} alt="" />}
+          <AvatarFallback>{initials(header.title)}</AvatarFallback>
+        </Avatar>
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-semibold truncate">{header.title}</div>
+          {header.subtitle && <div className="text-[11px] text-muted-foreground truncate tabular-nums">{header.subtitle}</div>}
+        </div>
+      </div>
+      <ScrollArea className="flex-1 p-4 md:p-5">
         <div className="space-y-3">
           {messages.length === 0 && (
             <div className="text-center text-sm text-muted-foreground py-12">

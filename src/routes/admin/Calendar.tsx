@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Plus } from "lucide-react";
+import { ArrowLeft, ArrowRight, Calendar as CalIcon, MapPin, Plus, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -81,49 +81,133 @@ export default function AdminCalendar() {
 
   return (
     <div>
-      <div className="flex items-start justify-between gap-4 flex-wrap mb-6">
+      {/* Header */}
+      <div className="mb-5 sm:mb-6 space-y-3 sm:space-y-0 sm:flex sm:items-start sm:justify-between sm:gap-4 sm:flex-wrap">
         <div>
           <h1 className="text-title1 font-semibold tracking-tight">Master calendar</h1>
-          <p className="text-muted-foreground mt-1">{fmtInTz(`${cursor}T12:00:00Z`, tz, "EEEE, MMMM d")} · {tz.replace("_", " ")}</p>
+          <p className="text-muted-foreground mt-1 text-sm sm:text-base">{fmtInTz(`${cursor}T12:00:00Z`, tz, "EEEE, MMMM d")} · {tz.replace("_", " ")}</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <Button variant="outline" size="icon" onClick={() => shift(-1)}><ArrowLeft className="h-4 w-4" /></Button>
-          <Button variant="outline" onClick={() => setCursor(ymdInTz(new Date().toISOString(), tz))}>Today</Button>
-          <Button variant="outline" size="icon" onClick={() => shift(1)}><ArrowRight className="h-4 w-4" /></Button>
-          <Tabs value={resource} onValueChange={(v) => setResource(v as ResourceMode)}>
+          <Button variant="outline" size="icon" onClick={() => shift(-1)} aria-label="Previous day"><ArrowLeft className="h-4 w-4" /></Button>
+          <Button variant="outline" size="sm" onClick={() => setCursor(ymdInTz(new Date().toISOString(), tz))}>Today</Button>
+          <Button variant="outline" size="icon" onClick={() => shift(1)} aria-label="Next day"><ArrowRight className="h-4 w-4" /></Button>
+          <Tabs value={resource} onValueChange={(v) => setResource(v as ResourceMode)} className="hidden sm:block">
             <TabsList>
               <TabsTrigger value="staff">By staff</TabsTrigger>
               <TabsTrigger value="location">By location</TabsTrigger>
             </TabsList>
           </Tabs>
-          <Button onClick={() => setNewOpen(true)}><Plus className="h-4 w-4" /> New booking</Button>
+          <Button onClick={() => setNewOpen(true)} size="sm"><Plus className="h-4 w-4" /> <span className="hidden sm:inline">New booking</span><span className="sm:hidden">New</span></Button>
         </div>
       </div>
 
-      <DndContext onDragEnd={onDragEnd}>
-        <Card className="p-0 overflow-x-auto">
-          <div className="min-w-[800px] grid" style={{ gridTemplateColumns: `60px repeat(${columns.length}, minmax(160px, 1fr))` }}>
-            <div className="" />
-            {columns.map((c) => (
-              <div key={c.id} className="border-b border-l border-border p-3">
-                <div className="flex items-center gap-2">
-                  {"avatar" in c && (
-                    <Avatar className="h-7 w-7"><AvatarImage src={(c as any).avatar} />{<AvatarFallback className="text-[10px]">{initials(c.label)}</AvatarFallback>}</Avatar>
-                  )}
-                  <span className="text-sm font-semibold">{c.label}</span>
+      {/* Mobile-only: agenda list */}
+      <div className="md:hidden">
+        <MobileAgenda bookings={today} services={services} staff={staff} locations={locations} tz={tz} onPick={setPicked} />
+      </div>
+
+      {/* md+ : resource grid with drag-to-reassign */}
+      <div className="hidden md:block">
+        <DndContext onDragEnd={onDragEnd}>
+          <Card className="p-0 overflow-x-auto">
+            <div className="min-w-[800px] grid" style={{ gridTemplateColumns: `60px repeat(${columns.length}, minmax(160px, 1fr))` }}>
+              <div className="" />
+              {columns.map((c) => (
+                <div key={c.id} className="border-b border-l border-border p-3">
+                  <div className="flex items-center gap-2">
+                    {"avatar" in c && (
+                      <Avatar className="h-7 w-7"><AvatarImage src={(c as any).avatar} />{<AvatarFallback className="text-[10px]">{initials(c.label)}</AvatarFallback>}</Avatar>
+                    )}
+                    <span className="text-sm font-semibold">{c.label}</span>
+                  </div>
                 </div>
-              </div>
-            ))}
-            {Array.from({ length: 13 }, (_, i) => 8 + i).map((h) => (
-              <ResourceRow key={h} hour={h} columns={columns} bookings={today} resource={resource} services={services} tz={tz} onPick={setPicked} businessId={business.id} />
-            ))}
-          </div>
-        </Card>
-      </DndContext>
+              ))}
+              {Array.from({ length: 13 }, (_, i) => 8 + i).map((h) => (
+                <ResourceRow key={h} hour={h} columns={columns} bookings={today} resource={resource} services={services} tz={tz} onPick={setPicked} businessId={business.id} />
+              ))}
+            </div>
+          </Card>
+        </DndContext>
+      </div>
 
       <NewBookingDialog open={newOpen} onClose={() => setNewOpen(false)} businessId={business.id} tz={tz} />
 
       <BookingPanel booking={picked} onClose={() => setPicked(null)} services={services} tz={tz} />
+    </div>
+  );
+}
+
+function MobileAgenda({
+  bookings, services, staff, locations, tz, onPick,
+}: {
+  bookings: Booking[];
+  services: ReturnType<typeof listServices>;
+  staff: ReturnType<typeof listStaff>;
+  locations: ReturnType<typeof listLocations>;
+  tz: string;
+  onPick: (b: Booking) => void;
+}) {
+  const sorted = useMemo(
+    () => bookings.slice().sort((a, b) => a.startAt.localeCompare(b.startAt)),
+    [bookings],
+  );
+
+  if (sorted.length === 0) {
+    return (
+      <Card className="p-10 text-center text-muted-foreground">
+        <CalIcon className="h-7 w-7 mx-auto mb-2 opacity-40" />
+        <p className="text-sm">Nothing on the calendar this day.</p>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {sorted.map((b) => {
+        const svc = services.find((s) => s.id === b.serviceId);
+        const sp = staff.find((s) => s.userId === b.staffUserId);
+        const loc = locations.find((l) => l.id === b.locationId);
+        return (
+          <button
+            key={b.id}
+            type="button"
+            onClick={() => onPick(b)}
+            className="block w-full text-left rounded-2xl border border-border bg-card hover:border-primary/50 transition-colors p-3"
+          >
+            <div className="flex items-start gap-3">
+              <div className="shrink-0 w-14 tabular-nums">
+                <div className="text-sm font-semibold">{fmtInTz(b.startAt, tz, "h:mm")}</div>
+                <div className="text-[11px] text-muted-foreground uppercase">{fmtInTz(b.startAt, tz, "a")}</div>
+              </div>
+              <div className="h-12 w-1 rounded-full bg-primary shrink-0" />
+              <div className="min-w-0 flex-1">
+                <div className="font-semibold text-sm truncate">{svc?.name ?? "Service"}</div>
+                <div className="text-xs text-muted-foreground truncate mt-0.5 flex items-center gap-1.5">
+                  <User className="h-3 w-3" /> {b.customerSnapshot.name}
+                </div>
+                <div className="mt-1 flex items-center gap-3 text-[11px] text-muted-foreground">
+                  {sp && (
+                    <span className="flex items-center gap-1">
+                      <Avatar className="h-4 w-4">
+                        {sp.avatar && <AvatarImage src={sp.avatar} alt="" />}
+                        <AvatarFallback className="text-[8px]">{initials(sp.displayName)}</AvatarFallback>
+                      </Avatar>
+                      <span className="truncate">{sp.displayName}</span>
+                    </span>
+                  )}
+                  {loc && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /><span className="truncate">{loc.name}</span></span>}
+                </div>
+              </div>
+              <Badge
+                variant={b.status === "confirmed" ? "confirmed" : b.status === "completed" ? "completed" : b.status === "no_show" ? "noshow" : "cancelled"}
+                className="shrink-0 text-[10px]"
+              >
+                {b.status === "confirmed" ? "On" : b.status.replace(/_/g, " ")}
+              </Badge>
+            </div>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -210,7 +294,7 @@ function NewBookingDialog({ open, onClose, businessId, tz }: { open: boolean; on
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-xl">
+      <DialogContent className="max-w-xl max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>New booking</DialogTitle>
           <DialogDescription>Phone-in customer? Manual override? Create it here.</DialogDescription>

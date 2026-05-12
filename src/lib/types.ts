@@ -187,5 +187,17 @@ export interface SmsLogEntry {
   body: string;
   bookingId?: string;
   createdAt: string;
-  status: "stub_logged";
+  status: "sent";
+}
+
+export interface EmailLogEntry {
+  id: string;
+  businessId: string;
+  to: string;
+  subject: string;
+  body: string;
+  bookingId?: string;
+  kind: "booking_confirmed" | "booking_cancelled" | "booking_rescheduled" | "reminder" | "other";
+  createdAt: string;
+  status: "sent";
 }

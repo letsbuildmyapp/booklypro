@@ -48,8 +48,7 @@ export default function LandingPage() {
             </>
           ) : (
             <>
-              <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex"><Link to="/login">Sign in</Link></Button>
-              <Button asChild size="sm"><Link to="/signup">Get started</Link></Button>
+              <Button asChild size="sm"><Link to="/login">Open the demo</Link></Button>
             </>
           )}
         </div>
@@ -167,8 +166,7 @@ function Hero() {
             transition={{ duration: 0.6, delay: 0.25 }}
             className="mt-7 flex flex-wrap gap-3"
           >
-            <Button asChild size="xl"><Link to="/signup">Start free, no card needed</Link></Button>
-            <Button asChild size="xl" variant="outline"><Link to="/b/bloom-and-co">See a live booking page</Link></Button>
+            <Button asChild size="xl"><Link to="/login">Open the demo</Link></Button>
           </motion.div>
           <motion.div
             initial={{ opacity: 0 }}
@@ -359,7 +357,7 @@ function Pricing() {
               className="w-full mt-7"
               variant={t.featured ? "default" : "outline"}
             >
-              <Link to="/signup">Start {t.name}</Link>
+              <Link to="/login">Try {t.name}</Link>
             </Button>
           </Card>
         ))}
@@ -409,7 +407,7 @@ function CTA() {
           </p>
           <div className="mt-7 flex flex-wrap gap-3 justify-center">
             <Button asChild size="xl" variant="accent">
-              <Link to="/signup">Get started</Link>
+              <Link to="/login">Open the demo</Link>
             </Button>
             <Button asChild size="xl" variant="outline" className="border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10">
               <Link to="/b/stillwater">View a live page</Link>

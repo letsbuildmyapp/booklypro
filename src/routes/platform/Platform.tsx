@@ -1,22 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { Building2, ExternalLink, LogOut, ShieldCheck, TrendingUp, Users, Wallet } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Building2, ExternalLink, ShieldCheck, TrendingUp, Users, Wallet } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Logo } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { useAuth } from "@/lib/auth";
+import { ResetDemo } from "@/components/ResetDemo";
+import { UserMenu } from "@/components/UserMenu";
 import { listBusinesses, listBookings, updateBusiness, subscribe } from "@/lib/api";
-import { formatPriceCents, initials } from "@/lib/utils";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { formatPriceCents } from "@/lib/utils";
 
 const TIER_PRICE = { solo: 19, team: 59, pro: 149 };
 
 export default function PlatformPage() {
-  const { user, signOut } = useAuth();
-  const nav = useNavigate();
   const [_, force] = useState(0);
   useEffect(() => subscribe(() => force((t) => t + 1)), []);
   const [q, setQ] = useState("");
@@ -41,16 +39,13 @@ export default function PlatformPage() {
       <header className="border-b border-border bg-card/80 backdrop-blur sticky top-0 z-30">
         <div className="container py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link to="/"><Logo /></Link>
+            <Link to="/platform" aria-label="Home"><Logo /></Link>
             <span className="text-sm text-muted-foreground">/</span>
             <span className="text-sm font-semibold flex items-center gap-1.5"><ShieldCheck className="h-4 w-4 text-primary" /> Platform admin</span>
           </div>
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            <Button variant="ghost" size="sm" onClick={() => { signOut(); nav("/"); }}>
-              <LogOut className="h-4 w-4" /> Sign out
-            </Button>
-            <Avatar className="h-9 w-9"><AvatarFallback>{initials(user?.displayName ?? "?")}</AvatarFallback></Avatar>
+            <UserMenu contextLabel="Platform admin" />
           </div>
         </div>
       </header>
@@ -111,6 +106,7 @@ export default function PlatformPage() {
           </div>
         </Card>
       </div>
+      <ResetDemo />
     </div>
   );
 }

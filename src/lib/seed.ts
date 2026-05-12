@@ -10,10 +10,12 @@ import type {
   BookingStatus,
   Business,
   Conversation,
+  EmailLogEntry,
   Location,
   Message,
   Notification,
   Service,
+  SmsLogEntry,
   StaffProfile,
   User,
 } from "./types";
@@ -77,6 +79,8 @@ export function seedAll(): {
   conversations: Conversation[];
   messages: Message[];
   notifications: Notification[];
+  smsLog: SmsLogEntry[];
+  emailLog: EmailLogEntry[];
 } {
   const users: User[] = [];
   const businesses: Business[] = [];
@@ -111,7 +115,7 @@ export function seedAll(): {
     phone: "+1 555 0123",
     timezone: TZ_NY,
     roles: ["customer"],
-    avatar: STOCK.avatars[0],
+    avatar: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=200&q=80",
     createdAt: now,
   };
   users.push(customer);
@@ -172,7 +176,7 @@ export function seedAll(): {
     status: "active",
     tier: "team",
     subscriptionStatus: "active",
-    stripeCustomerId: "cus_demo_salon",
+    stripeCustomerId: "cus_PQR9c2zN1XaY",
     brandColors: { hue: 12 }, // coral-leaning
     cancellationPolicy: { hoursBefore: 24, chargePercent: 50 },
     showPlatformFooter: true,
@@ -268,7 +272,7 @@ export function seedAll(): {
     status: "active",
     tier: "pro",
     subscriptionStatus: "active",
-    stripeCustomerId: "cus_demo_yoga",
+    stripeCustomerId: "cus_QrKt8WfX2vNm",
     brandColors: { hue: 152 },
     cancellationPolicy: { hoursBefore: 12, chargePercent: 100 },
     showPlatformFooter: false,
@@ -315,7 +319,7 @@ export function seedAll(): {
     status: "active",
     tier: "solo",
     subscriptionStatus: "trialing",
-    stripeCustomerId: "cus_demo_tutor",
+    stripeCustomerId: "cus_NbJh7VcD5kZp",
     brandColors: { hue: 220 },
     cancellationPolicy: { hoursBefore: 24, chargePercent: 0 },
     showPlatformFooter: true,
@@ -355,7 +359,7 @@ export function seedAll(): {
     status: "active",
     tier: "team",
     subscriptionStatus: "active",
-    stripeCustomerId: "cus_demo_groomer",
+    stripeCustomerId: "cus_MgKv6TaB4jXr",
     brandColors: { hue: 36 },
     cancellationPolicy: { hoursBefore: 12, chargePercent: 50 },
     showPlatformFooter: true,
@@ -407,7 +411,7 @@ export function seedAll(): {
       status: args.status,
       priceCents: args.priceCents,
       depositPaidCents: args.depositPaidCents ?? 0,
-      stripePaymentIntentId: args.depositPaidCents ? `pi_demo_${nanoid(8)}` : null,
+      stripePaymentIntentId: args.depositPaidCents ? `pi_3${nanoid(13)}` : null,
       notesFromCustomer: args.notesFromCustomer,
       createdAt,
       statusHistory: [{ status: "confirmed", at: createdAt, byUserId: args.customerUserId }],
@@ -504,5 +508,80 @@ export function seedAll(): {
     { id: id("notif"), userId: customer.id, kind: "message", title: "New message from Wagging Trail", body: "All set! No need to bring anything.", link: "/me/messages", createdAt: addMinutesIso(now, -60), readAt: null }
   );
 
-  return { users, businesses, services, locations, staff, availability, bookings, conversations, messages, notifications };
+  // ---------------- SMS + email logs from past activity ----------------
+  const smsLog: SmsLogEntry[] = [];
+  const emailLog: EmailLogEntry[] = [];
+  const businessByIdMap = new Map(businesses.map((b) => [b.id, b]));
+  const serviceByIdMap = new Map(services.map((s) => [s.id, s]));
+
+  function fmtTime(iso: string, tz: string): string {
+    try {
+      return new Date(iso).toLocaleString("en-US", {
+        timeZone: tz, weekday: "short", month: "short", day: "numeric",
+        hour: "numeric", minute: "2-digit",
+      });
+    } catch { return iso; }
+  }
+  function firstNameOf(s: string) { return s.split(/\s+/)[0] ?? s; }
+
+  // For each non-cancelled booking, write a confirmation email (and SMS if there's a phone).
+  // Reminders only fire for upcoming confirmed bookings within 48h, matching the 2h/24h reminder behavior.
+  for (const b of bookings) {
+    if (b.status === "cancelled_by_customer" || b.status === "cancelled_by_business") continue;
+    const biz = businessByIdMap.get(b.businessId);
+    const svc = serviceByIdMap.get(b.serviceId);
+    if (!biz || !svc) continue;
+    const tz = biz.timezone;
+    const when = fmtTime(b.startAt, tz);
+    emailLog.push({
+      id: id("email"), businessId: b.businessId,
+      to: b.customerSnapshot.email,
+      subject: `${biz.name} · confirmed for ${when}`,
+      body: `Hi ${firstNameOf(b.customerSnapshot.name)}, your ${svc.name} is confirmed for ${when}. We'll send a reminder ahead of time.`,
+      bookingId: b.id, kind: "booking_confirmed",
+      createdAt: b.createdAt, status: "sent",
+    });
+    if (b.customerSnapshot.phone) {
+      smsLog.push({
+        id: id("sms"), businessId: b.businessId,
+        to: b.customerSnapshot.phone,
+        body: `${biz.name}: confirmed for ${when}. Reply STOP to opt out.`,
+        bookingId: b.id, createdAt: b.createdAt, status: "sent",
+      });
+    }
+  }
+
+  // 24h + 2h reminders for the next few upcoming confirmed bookings (most recent first).
+  const upcoming = bookings
+    .filter((b) => b.status === "confirmed" && new Date(b.startAt).getTime() > Date.now())
+    .sort((a, b) => a.startAt.localeCompare(b.startAt))
+    .slice(0, 6);
+  for (const b of upcoming) {
+    const biz = businessByIdMap.get(b.businessId);
+    const svc = serviceByIdMap.get(b.serviceId);
+    if (!biz || !svc) continue;
+    const tz = biz.timezone;
+    const startMs = new Date(b.startAt).getTime();
+    const reminder24 = new Date(startMs - 24 * 60 * 60 * 1000);
+    const reminder2 = new Date(startMs - 2 * 60 * 60 * 1000);
+
+    if (reminder24.getTime() < Date.now() && b.customerSnapshot.phone) {
+      smsLog.push({
+        id: id("sms"), businessId: b.businessId,
+        to: b.customerSnapshot.phone,
+        body: `Reminder: ${svc.name} at ${biz.name} tomorrow at ${fmtTime(b.startAt, tz).split(",")[1]?.trim() ?? fmtTime(b.startAt, tz)}.`,
+        bookingId: b.id, createdAt: reminder24.toISOString(), status: "sent",
+      });
+    }
+    if (reminder2.getTime() < Date.now() && b.customerSnapshot.phone) {
+      smsLog.push({
+        id: id("sms"), businessId: b.businessId,
+        to: b.customerSnapshot.phone,
+        body: `See you in 2 hours at ${biz.name}.`,
+        bookingId: b.id, createdAt: reminder2.toISOString(), status: "sent",
+      });
+    }
+  }
+
+  return { users, businesses, services, locations, staff, availability, bookings, conversations, messages, notifications, smsLog, emailLog };
 }

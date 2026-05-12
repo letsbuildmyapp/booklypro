@@ -1,7 +1,7 @@
 import { Link, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Calendar as CalendarIcon, Check, Download, MapPin, MessageSquare, ShieldCheck } from "lucide-react";
-import { Logo } from "@/components/Logo";
+import { HomeLink } from "@/components/HomeLink";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -43,7 +43,7 @@ export default function BookingConfirmation() {
   return (
     <div className="min-h-screen bg-background bg-grain">
       <header className="container py-6 flex items-center justify-between">
-        <Link to="/"><Logo /></Link>
+        <HomeLink />
         <ThemeToggle />
       </header>
       <main className="container max-w-2xl pb-20">

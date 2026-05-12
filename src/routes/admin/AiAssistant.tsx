@@ -124,9 +124,9 @@ export default function AdminAi() {
         <Card className="p-5 bg-secondary/40 border-none">
           <h3 className="font-semibold text-headline">How it works</h3>
           <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
-            The assistant calls <code>claude-opus-4-7</code> via a Cloud Function with tool-use enabled. It can read your calendar, propose reschedules, block time, and add buffers — but never executes anything until you confirm.
+            The assistant reads your calendar, proposes reschedules, blocks time, and adds buffers — but never executes anything until you confirm.
           </p>
-          <p className="text-xs text-muted-foreground mt-4">Prompt caching enabled on system prompt + business context for fast replies.</p>
+          <p className="text-xs text-muted-foreground mt-4">Every change shows up in the proposal below before it touches a single appointment.</p>
         </Card>
       </div>
     </div>

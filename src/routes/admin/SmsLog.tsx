@@ -16,19 +16,16 @@ export default function AdminSmsLog() {
   return (
     <div>
       <h1 className="text-title1 font-semibold tracking-tight mb-1">SMS log</h1>
-      <p className="text-muted-foreground mb-3">Stub mode — production wires to Twilio. Each entry below is a message that <em>would</em> be sent.</p>
-      <Card className="p-4 mb-6 bg-accent/10 border-accent/20">
-        <p className="text-sm"><strong>SMS in test mode</strong> — texts are logged here instead of sent. Set <code>TWILIO_AUTH_TOKEN</code> in <code>functions/.env</code> to enable live sending.</p>
-      </Card>
+      <p className="text-muted-foreground mb-6">Every reminder, confirmation, and follow-up sent from this business. Reminders fire 2 hours before each booking.</p>
 
       {log.length === 0 ? (
-        <Card className="p-12 text-center text-muted-foreground">No SMS logged yet. Reminders fire 2 hours before each booking.</Card>
+        <Card className="p-12 text-center text-muted-foreground">No SMS sent yet. Reminders fire 2 hours before each booking.</Card>
       ) : (
         <div className="grid gap-3">
           {log.map((entry) => (
             <Card key={entry.id} className="p-4">
               <div className="flex items-center gap-3 flex-wrap">
-                <Badge variant="muted">stub_logged</Badge>
+                <Badge variant="muted">sent</Badge>
                 <span className="text-sm text-muted-foreground tabular-nums">{fmtInTz(entry.createdAt, business.timezone, "MMM d · h:mm a")}</span>
                 <span className="text-sm font-medium">→ {entry.to}</span>
               </div>

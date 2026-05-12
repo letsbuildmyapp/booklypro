@@ -1,8 +1,7 @@
 /* ---------------------------------------------------------------------
-   In-memory + localStorage data store. Models Firestore collections.
-   Production: replace each collection access with a Firestore query.
-   The shape and access patterns here mirror Firestore idioms so the
-   migration is mechanical (see src/lib/api.ts for the public surface).
+   In-memory + localStorage data store. Seeds rich demo content on first
+   load; persists session edits to localStorage. The Reset demo button
+   clears every booklypro:* key and reloads.
 --------------------------------------------------------------------- */
 
 import { nanoid } from "@/lib/id";
@@ -12,6 +11,7 @@ import type {
   Booking,
   Business,
   Conversation,
+  EmailLogEntry,
   Location,
   Message,
   Notification,
@@ -22,7 +22,8 @@ import type {
 } from "./types";
 import { seedAll } from "./seed";
 
-const STORAGE_KEY = "booklypro:store:v1";
+const STORAGE_KEY = "booklypro:store:v2";
+const KEY_PREFIX = "booklypro:";
 
 export interface Store {
   users: User[];
@@ -37,6 +38,7 @@ export interface Store {
   messages: Message[];
   notifications: Notification[];
   smsLog: SmsLogEntry[];
+  emailLog: EmailLogEntry[];
   // session
   currentUserId: string | null;
 }
@@ -58,6 +60,7 @@ function emptyStore(): Store {
     messages: [],
     notifications: [],
     smsLog: [],
+    emailLog: [],
     currentUserId: null,
   };
 }
@@ -68,7 +71,9 @@ function load(): Store {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       try {
-        memory = JSON.parse(raw) as Store;
+        const parsed = JSON.parse(raw) as Partial<Store>;
+        // Fill in any collections added since this store was first persisted.
+        memory = { ...emptyStore(), ...parsed } as Store;
         return memory;
       } catch {
         /* fall through */
@@ -114,7 +119,12 @@ export function mutate<T>(fn: (s: Store) => T): T {
 
 export function resetStore() {
   if (typeof window !== "undefined") {
-    localStorage.removeItem(STORAGE_KEY);
+    const toRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(KEY_PREFIX)) toRemove.push(k);
+    }
+    for (const k of toRemove) localStorage.removeItem(k);
   }
   memory = null;
   load();

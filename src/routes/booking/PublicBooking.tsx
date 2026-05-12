@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, ArrowRight, Calendar, Check, Clock, MapPin, Phone, ShieldCheck, Sparkles, User } from "lucide-react";
-import { Logo } from "@/components/Logo";
+import { HomeLink } from "@/components/HomeLink";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
+import { ProcessingModal } from "@/components/ProcessingModal";
 import { cn, formatDuration, formatPriceCents, initials } from "@/lib/utils";
 import { browserTimezone, fmtInTz, todayYmd } from "@/lib/time";
 import { computeDeposit } from "@/lib/availability";
@@ -69,9 +70,7 @@ export default function PublicBookingPage() {
       style={{ ["--ring" as any]: `${accentHue} 60% 50%`, ["--primary" as any]: `${accentHue} 35% 46%` }}
     >
       <header className="container py-6 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-2">
-          <Logo />
-        </Link>
+        <HomeLink className="flex items-center gap-2" />
         <ThemeToggle />
       </header>
 
@@ -178,31 +177,43 @@ function Stepper({ step, skipStaff, skipLoc }: { step: Step; skipStaff: boolean;
     if (i === 2 && skipLoc) return false;
     return true;
   });
+  const activeIdx = visible.findIndex(({ i }) => i === step);
+  const activeLabel = visible[activeIdx]?.l;
+
   return (
-    <div className="flex items-center gap-3 overflow-x-auto pb-1">
-      {visible.map(({ l, i }, idx) => {
-        const active = step === i;
-        const done = step > i;
-        return (
-          <div key={l} className="flex items-center gap-3 shrink-0">
-            <div className={cn(
-              "flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium",
-              active ? "bg-primary text-primary-foreground" :
-              done ? "bg-secondary text-foreground" :
-              "bg-muted/50 text-muted-foreground"
-            )}>
-              <span className={cn(
-                "grid place-items-center h-5 w-5 rounded-full text-[10px] tabular-nums font-semibold",
-                active ? "bg-primary-foreground/20" : done ? "bg-primary text-primary-foreground" : "bg-card"
+    <div>
+      {/* Mobile: active step name + step counter above the stepper */}
+      <div className="sm:hidden mb-2 flex items-baseline justify-between">
+        <span className="text-sm font-semibold">{activeLabel}</span>
+        <span className="text-xs text-muted-foreground tabular-nums">Step {activeIdx + 1} of {visible.length}</span>
+      </div>
+
+      <div className="flex items-center gap-2 sm:gap-3">
+        {visible.map(({ l, i }, idx) => {
+          const active = step === i;
+          const done = step > i;
+          return (
+            <div key={l} className="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
+              <div className={cn(
+                "flex items-center gap-2 rounded-full px-2.5 sm:px-4 py-1.5 text-sm font-medium",
+                active ? "bg-primary text-primary-foreground" :
+                done ? "bg-secondary text-foreground" :
+                "bg-muted/50 text-muted-foreground"
               )}>
-                {done ? <Check className="h-3 w-3" /> : idx + 1}
-              </span>
-              <span>{l}</span>
+                <span className={cn(
+                  "grid place-items-center h-5 w-5 rounded-full text-[10px] tabular-nums font-semibold shrink-0",
+                  active ? "bg-primary-foreground/20" : done ? "bg-primary text-primary-foreground" : "bg-card"
+                )}>
+                  {done ? <Check className="h-3 w-3" /> : idx + 1}
+                </span>
+                {/* Hide labels on mobile to keep all steps visible without scroll */}
+                <span className="hidden sm:inline">{l}</span>
+              </div>
+              {idx < visible.length - 1 && <div className={cn("h-px w-4 sm:w-6", done ? "bg-primary" : "bg-border")} />}
             </div>
-            {idx < visible.length - 1 && <div className={cn("h-px w-6", done ? "bg-primary" : "bg-border")} />}
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -528,9 +539,30 @@ function DetailsStep(props: {
     notes: "",
   });
   const [submitting, setSubmitting] = useState(false);
+  const [paying, setPaying] = useState(false);
 
   const business = props.business!;
   const deposit = computeDeposit(props.service);
+
+  function finalizeBooking() {
+    const stripePaymentIntentId = deposit > 0 ? `pi_${Math.random().toString(36).slice(2, 12)}` : null;
+    const customer = currentUser() ?? getOrCreateGuestCustomer({ name: form.name, email: form.email, phone: form.phone });
+
+    const booking = createBooking({
+      businessId: business.id,
+      serviceId: props.service.id,
+      staffUserId: props.staffUserId,
+      locationId: props.locationId,
+      customer: { userId: customer.id, name: form.name, email: form.email, phone: form.phone },
+      startAt: props.slot.startAt,
+      notesFromCustomer: form.notes || undefined,
+      depositPaidCents: deposit,
+      stripePaymentIntentId,
+    });
+
+    if (deposit > 0) toast.success(`Deposit of ${formatPriceCents(deposit)} confirmed`);
+    props.onConfirm(booking);
+  }
 
   async function confirm() {
     if (!form.name || !form.email) {
@@ -538,26 +570,13 @@ function DetailsStep(props: {
       return;
     }
     setSubmitting(true);
+    if (deposit > 0) {
+      // Payment processing UI handles the rest via onSettled
+      setPaying(true);
+      return;
+    }
     try {
-      // Mock Stripe deposit charge — in prod, redirect to Stripe Checkout
-      const stripePaymentIntentId = deposit > 0 ? `pi_demo_${Math.random().toString(36).slice(2, 10)}` : null;
-
-      const customer = currentUser() ?? getOrCreateGuestCustomer({ name: form.name, email: form.email, phone: form.phone });
-
-      const booking = createBooking({
-        businessId: business.id,
-        serviceId: props.service.id,
-        staffUserId: props.staffUserId,
-        locationId: props.locationId,
-        customer: { userId: customer.id, name: form.name, email: form.email, phone: form.phone },
-        startAt: props.slot.startAt,
-        notesFromCustomer: form.notes || undefined,
-        depositPaidCents: deposit,
-        stripePaymentIntentId,
-      });
-
-      if (deposit > 0) toast.success(`Deposit of ${formatPriceCents(deposit)} charged · Stripe test mode`);
-      props.onConfirm(booking);
+      finalizeBooking();
     } catch (e: any) {
       toast.error(e.message || "Could not confirm booking");
     } finally {
@@ -632,6 +651,16 @@ function DetailsStep(props: {
           </p>
         </Card>
       </div>
+      <ProcessingModal
+        open={paying}
+        title="Processing payment"
+        subtitle={`Charging deposit of ${formatPriceCents(deposit)}`}
+        onSettled={() => {
+          setPaying(false);
+          try { finalizeBooking(); }
+          catch (e: any) { toast.error(e.message || "Could not confirm booking"); setSubmitting(false); }
+        }}
+      />
     </div>
   );
 }

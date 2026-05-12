@@ -1,7 +1,7 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { useEffect } from "react";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import LandingPage from "@/routes/Landing";
 import LoginPage from "@/routes/Login";
-import SignUpPage from "@/routes/SignUp";
 import PublicBookingPage from "@/routes/booking/PublicBooking";
 import BookingConfirmation from "@/routes/booking/Confirmation";
 import ManageBookingPage from "@/routes/booking/ManageBooking";
@@ -14,7 +14,6 @@ import CustomerProfile from "@/routes/customer/Profile";
 import StaffLayout from "@/routes/staff/Layout";
 import StaffCalendar from "@/routes/staff/Calendar";
 import StaffHours from "@/routes/staff/Hours";
-import StaffMessages from "@/routes/staff/Messages";
 import StaffServices from "@/routes/staff/Services";
 import AdminLayout from "@/routes/admin/Layout";
 import AdminDashboard from "@/routes/admin/Dashboard";
@@ -36,14 +35,23 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { Tutorial } from "@/components/tutorial/Tutorial";
 import { useAuth } from "@/lib/auth";
 
+function ScrollToTopOnRouteChange() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" as ScrollBehavior });
+  }, [pathname]);
+  return null;
+}
+
 export default function App() {
   const { user } = useAuth();
   return (
     <>
+      <ScrollToTopOnRouteChange />
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/signup" element={<SignUpPage />} />
+        <Route path="/signup" element={<Navigate to="/login" replace />} />
 
         <Route path="/b/:slug" element={<PublicBookingPage />} />
         <Route path="/b/:slug/confirmed/:bookingId" element={<BookingConfirmation />} />
@@ -65,7 +73,6 @@ export default function App() {
             <Route index element={<Navigate to="calendar" replace />} />
             <Route path="calendar" element={<StaffCalendar />} />
             <Route path="hours" element={<StaffHours />} />
-            <Route path="messages" element={<StaffMessages />} />
             <Route path="services" element={<StaffServices />} />
           </Route>
         </Route>

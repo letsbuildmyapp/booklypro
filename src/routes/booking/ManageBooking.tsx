@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { ArrowLeft, AlertTriangle, Calendar as CalendarIcon, MessageSquare, X } from "lucide-react";
-import { Logo } from "@/components/Logo";
+import { HomeLink } from "@/components/HomeLink";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { fmtInTz } from "@/lib/time";
 import { cancellationCharge } from "@/lib/availability";
 import { formatPriceCents } from "@/lib/utils";
-import { ensureConversation, getBooking, getBusinessBySlug, listServices, listStaff, listLocations, rescheduleBooking, updateBookingStatus } from "@/lib/api";
+import { currentUser, ensureConversation, getBooking, getBusinessBySlug, listServices, listStaff, listLocations, rescheduleBooking, updateBookingStatus } from "@/lib/api";
 import NotFoundPage from "@/routes/NotFound";
 
 export default function ManageBookingPage() {
@@ -37,13 +37,18 @@ export default function ManageBookingPage() {
     updateBookingStatus(booking!.id, "cancelled_by_customer", booking!.customerUserId);
     toast.success(charge.chargeCents > 0 ? `Booking cancelled. ${formatPriceCents(charge.chargeCents)} charge applied.` : "Booking cancelled. No charge.");
     setConfirmCancelOpen(false);
-    force((t) => t + 1);
+    // Logged-in customers get sent back to their bookings list; guests stay on this page.
+    if (currentUser()) {
+      nav("/me/bookings");
+    } else {
+      force((t) => t + 1);
+    }
   }
 
   return (
     <div className="min-h-screen bg-background bg-grain">
       <header className="container py-6 flex items-center justify-between">
-        <Link to="/"><Logo /></Link>
+        <HomeLink />
         <ThemeToggle />
       </header>
       <main className="container max-w-2xl pb-20">

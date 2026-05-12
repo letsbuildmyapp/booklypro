@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
 import { getBusinessBySlug, updateBusiness } from "@/lib/api";
 
 export default function AdminBranding() {
@@ -17,7 +16,6 @@ export default function AdminBranding() {
     description: business.description,
     heroImage: business.heroImage ?? "",
     hue: business.brandColors.hue,
-    showPlatformFooter: business.showPlatformFooter,
   });
 
   function save() {
@@ -26,7 +24,6 @@ export default function AdminBranding() {
       description: draft.description,
       heroImage: draft.heroImage || undefined,
       brandColors: { ...business.brandColors, hue: draft.hue },
-      showPlatformFooter: draft.showPlatformFooter,
     });
     toast.success("Branding saved");
   }
@@ -55,17 +52,6 @@ export default function AdminBranding() {
             <input type="range" min={0} max={360} value={draft.hue} onChange={(e) => setDraft({ ...draft, hue: Number(e.target.value) })}
               className="w-full h-2 rounded-full appearance-none cursor-pointer"
               style={{ background: `linear-gradient(to right, oklch(0.7 0.18 0), oklch(0.7 0.18 60), oklch(0.7 0.18 120), oklch(0.7 0.18 180), oklch(0.7 0.18 240), oklch(0.7 0.18 300), oklch(0.7 0.18 360))` }}
-            />
-          </div>
-          <div className="flex items-center justify-between rounded-2xl bg-secondary/40 p-4">
-            <div>
-              <Label className="font-semibold">Show "Powered by BooklyPro" footer</Label>
-              <p className="text-xs text-muted-foreground">Pro tier can hide it. {business.tier !== "pro" && <span className="text-accent">Upgrade to Pro to hide.</span>}</p>
-            </div>
-            <Switch
-              checked={!draft.showPlatformFooter}
-              onCheckedChange={(v) => setDraft({ ...draft, showPlatformFooter: !v })}
-              disabled={business.tier !== "pro"}
             />
           </div>
           <Button onClick={save} size="lg">Save changes</Button>
